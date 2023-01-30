@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "lint": "eslint . --ext .ts",
-    "start": "npx tsc && node dist/index.js"
+    "start:scrapping": "npx tsc && node dist/index.js",
+    "start:bot": "npx tsc && node dist/discordBot.js"
   },
   "keywords": [],
   "author": "",

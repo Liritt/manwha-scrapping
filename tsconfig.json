@@ -102,6 +102,7 @@
   },
   "files": [
     "src/data.ts",
-    "src/index.ts"
+    "src/index.ts",
+    "src/discordBot.ts"
   ]
 }
