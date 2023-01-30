@@ -1,6 +1,5 @@
 import * as puppeteer from 'puppeteer';
 
-
 export async function getData() {
     let nbPageSelect = 1;
     const browser = await puppeteer.launch({headless: false})
@@ -90,7 +89,9 @@ export async function getData() {
                     if (tempDatUpdate === undefined) {
                         tempDatUpdate = document.querySelector("div.manga-info-top ul.manga-info-text li:nth-child(4)")?.textContent?.replace("Last updated : ", "") as string;
                     }
-                    return tempDatUpdate;
+                    tempDatUpdate = tempDatUpdate.replace("- ", "");
+                    // Prepare the string to be converted to a date with the french timezone
+                    return tempDatUpdate.substring(0, tempDatUpdate.length-2) + "UTC+7";
                 });
 
                 const description: string | undefined = await newPage.evaluate(() => {
@@ -123,7 +124,8 @@ export async function getData() {
         const bannedGenres: Array<string> = ["Yaoi", "Shounen ai", "Yuri"]
         manwhas.forEach((manwha) => {
             if (typeof manwha.datUpdate === "string") {
-                manwha.datUpdate = manwha.datUpdate.replace("- ", "")
+                manwha.datUpdate = new Date(manwha.datUpdate)
+                console.log(typeof manwha.datUpdate)
             }
             if (!manwha.genres.some((genre) => bannedGenres.includes(genre))) {
                 console.log(manwha);
