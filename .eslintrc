@@ -11,6 +11,7 @@
   ],
   "rules": {
     "no-control-regex": "off",
-    "@typescript-eslint/no-explicit-any": ["off"]
+    "@typescript-eslint/no-explicit-any": "off",
+    "no-constant-condition": "off"
   }
 }

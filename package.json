@@ -2,7 +2,7 @@
   "name": "manwha-scrapping",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
     "lint": "eslint . --ext .ts",
     "start:scrapping": "npx tsc && node dist/index.js",
@@ -15,10 +15,10 @@
     "@typescript-eslint/eslint-plugin": "^5.49.0",
     "@typescript-eslint/parser": "^5.49.0",
     "eslint": "^8.32.0",
-    "typescript": "^4.9.4"
+    "typescript": "^4.9.4",
+    "@types/node": "^18.11.18"
   },
   "dependencies": {
-    "@types/node": "^18.11.18",
     "discord.js": "^14.7.1",
     "dotenv": "^16.0.3",
     "puppeteer": "^19.6.0"
