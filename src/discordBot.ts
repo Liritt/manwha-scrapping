@@ -1,5 +1,7 @@
 import {Client, GatewayIntentBits, TextChannel} from "discord.js";
 import * as dotenv from 'dotenv';
+import { dbConnexion } from '../DBConnexion';
+import { getAll } from "./queries";
 
 dotenv.config();
 
@@ -22,12 +24,27 @@ client.once("ready", async () => {
 
     const messages = await channel.messages.fetch({ limit: 5 });
     console.log(`Received ${messages.size} messages`);
-    messages.forEach((message) => {
-        if (message.author.id === process.env.AUTHOR_ID) {
-            console.log(message.content)
-        }
-    });
-})
+    dbConnexion.connect()
+        .then(() => {
+            console.log("Connected to database");
+            return Promise.all(messages.map(async (message) => {
+                if (message.author.id === process.env.AUTHOR_ID) {
+                    console.log("Inserting message into database");
+                    try {
+                        const lstName = await dbConnexion.query("select name from \"startedManwha\"")
+                        lstName.rows.some((name) => name.name === message.content)
+                            ? console.log("Name already exists")
+                            : await dbConnexion.query("INSERT INTO \"startedManwha\" (name, \"nbLastChap\") VALUES ($1, $2)", [message.content, 3]);
+                    } catch (error) {
+                        console.error(error);
+                    }
+                }
+            }));
+        })
+        .then(() => {
+            dbConnexion.end();
+        });
+});
 
 client.on('messageUpdate', async (oldMessage, newMessage) => {
     if (newMessage.author.id === process.env.AUTHOR_ID && newMessage.guild.id === process.env.SERVER_ID && newMessage.channel.id === process.env.CHANNEL_ID) {
@@ -36,7 +53,7 @@ client.on('messageUpdate', async (oldMessage, newMessage) => {
     }
 });
 
-client.on("messageCreate", (message) => {
+client.on("messageCreate", async (message) => {
     if (message.author.bot) return;
     if (message.author.id === process.env.AUTHOR_ID && (message.channel.id === process.env.CHANNEL_ID || message.channel.id === process.env.CHANNEL_ID2)) console.log(message.content);
 })

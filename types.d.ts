@@ -5,7 +5,8 @@ declare global {
       AUTHOR_ID: string,
       CHANNEL_ID: string,
       CHANNEL_ID2: string,
-      TOKEN: string
+      TOKEN: string,
+      DB_PASSWORD: string
     }
   }
 }
