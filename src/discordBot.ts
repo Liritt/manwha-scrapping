@@ -1,7 +1,6 @@
 import {Client, GatewayIntentBits, TextChannel} from "discord.js";
 import * as dotenv from 'dotenv';
 import { dbConnexion } from '../DBConnexion';
-import { getAll } from "./queries";
 
 dotenv.config();
 
@@ -26,15 +25,33 @@ client.once("ready", async () => {
     console.log(`Received ${messages.size} messages`);
     dbConnexion.connect()
         .then(() => {
+            // TO DO : Créer un trigger qui sur delete remet les id bien comme il faut et remet la sequence en place
             console.log("Connected to database");
             return Promise.all(messages.map(async (message) => {
                 if (message.author.id === process.env.AUTHOR_ID) {
-                    console.log("Inserting message into database");
                     try {
-                        const lstName = await dbConnexion.query("select name from \"startedManwha\"")
-                        lstName.rows.some((name) => name.name === message.content)
-                            ? console.log("Name already exists")
-                            : await dbConnexion.query("INSERT INTO \"startedManwha\" (name, \"nbLastChap\") VALUES ($1, $2)", [message.content, 3]);
+                        let manwhaName: string = message.content;
+                        let parsedMessage: number;
+                        let numLastChap = '';
+                        let charToConvert: string;
+                        do {
+                            charToConvert = manwhaName.charAt(manwhaName.length-1);
+                            parsedMessage = parseInt(charToConvert, 10);
+                            if (!isNaN(parsedMessage)) {
+                                numLastChap = charToConvert + numLastChap;
+                                manwhaName = manwhaName.substring(0, manwhaName.length-1).trim();
+                            }
+                        } while (!isNaN(parsedMessage) && manwhaName.length > 0);
+                        const testedManwhaName = manwhaName.toLowerCase();
+                        if (testedManwhaName.endsWith('- chapter')) {
+                            manwhaName = manwhaName.substring(0, manwhaName.length-9).trim();
+                        } else if (testedManwhaName.endsWith('chapter')) {
+                            manwhaName = manwhaName.substring(0, manwhaName.length-7).trim();
+                        }
+                        if (!((await dbConnexion.query(`SELECT "name" FROM "startedManwha" WHERE "name"=$1`, [manwhaName])).rows.length > 0)) {
+                            await dbConnexion.query(`INSERT INTO "startedManwha" ("name", "numLastChap") VALUES ($1, $2)`, [manwhaName, parseInt(numLastChap, 10)]);
+                            console.log("Inserting message into database");
+                        }
                     } catch (error) {
                         console.error(error);
                     }
