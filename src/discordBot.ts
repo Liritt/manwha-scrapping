@@ -39,9 +39,7 @@ client.once("ready", async () => {
                         do {
                             charToConvert = manwhaName.charAt(manwhaName.length-1);
                             if (charToConvert === ".") {
-                                console.log("Salut")
                                 numLastChap = charToConvert + numLastChap;
-                                console.log(numLastChap)
                                 manwhaName = manwhaName.substring(0, manwhaName.length-1);
                                 charToConvert = manwhaName.charAt(manwhaName.length-1);
                             }

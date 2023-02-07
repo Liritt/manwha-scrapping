@@ -6,7 +6,8 @@
   "scripts": {
     "lint": "eslint . --ext .ts",
     "start:scrapping": "npx tsc && node dist/src/index.js",
-    "start:bot": "npx tsc && node dist/src/discordBot.js"
+    "start:bot": "npx tsc && node dist/src/discordBot.js",
+    "start:query": "npx tsc && node dist/src/queries.js"
   },
   "keywords": [],
   "author": "",
