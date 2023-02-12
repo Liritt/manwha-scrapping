@@ -1,6 +1,7 @@
-import {Client, GatewayIntentBits, Message, TextChannel} from "discord.js";
+import {Client, GatewayIntentBits, Message, PartialMessage, Partials, TextChannel} from "discord.js";
 import * as dotenv from 'dotenv';
-import { dbConnexion } from '../DBConnexion';
+import {dbConnexion} from '../DBConnexion';
+import {channel} from "diagnostics_channel";
 
 dotenv.config();
 
@@ -9,6 +10,10 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent
+    ],
+    partials: [
+        Partials.Message,
+        Partials.Channel
     ]
 });
 
@@ -26,7 +31,7 @@ async function getAllMessages(channel: TextChannel) {
     return messages;
 }
 
-function getNameAndNumChapFromMessage(message: Message) {
+function getNameAndNumChapFromMessage(message: Message | PartialMessage) {
     let manwhaName: string = message.content;
     let parsedMessage: number;
     let numLastChap = '';
@@ -65,14 +70,14 @@ client.once("ready", async () => {
     const messages2 = await getAllMessages(channel2);
     await dbConnexion.connect();
     console.log("Connected to database");
-    [...messages1, ...messages2].map(async (message) => {
+    for (const message of [...messages1, ...messages2]) {
         try {
             if (message.author.id === process.env.AUTHOR_ID) {
                 try {
                     const {manwhaName, numLastChap} = getNameAndNumChapFromMessage(message);
                     if (!((await dbConnexion.query(`SELECT "name" FROM "startedManwha" WHERE "name"=$1`, [manwhaName])).rows.length > 0)) {
                         const type = message.channel.id === process.env.CHANNEL2_ID ? 'H' : 'N';
-                        await dbConnexion.query(`INSERT INTO "startedManwha" ("name", "numLastChap", "type") VALUES ($1, $2, $3)`, [manwhaName, parseFloat(numLastChap), type]);
+                        await dbConnexion.query(`INSERT INTO "startedManwha" ("name", "numLastChap", "type", "idDiscord") VALUES ($1, $2, $3, $4)`, [manwhaName, parseFloat(numLastChap), type, message.id]);
                         console.log(`Le manwha "${manwhaName}" a bien été ajouté dans la database !`);
                     }
                 } catch (error) {
@@ -82,22 +87,36 @@ client.once("ready", async () => {
         } catch (err) {
             console.log(message);
         }
-    });
+    }
 });
 
 client.on('messageUpdate', async (oldMessage, newMessage) => {
-    if (newMessage.author.id === process.env.AUTHOR_ID && newMessage.guild.id === process.env.SERVER_ID && newMessage.channel.id === process.env.CHANNEL1_ID) {
-        const oldMessageCast = oldMessage as Message<boolean>;
-        const newMessageCast = newMessage as Message<boolean>;
-        const {manwhaName: newManwhaName, numLastChap: newNumLastChap} = getNameAndNumChapFromMessage(newMessageCast);
-        const {manwhaName: oldManwhaName} = getNameAndNumChapFromMessage(oldMessageCast);
-        if (newNumLastChap !== "") {
-            await dbConnexion.query(`UPDATE "startedManwha" SET "name"=$1 AND "numLastChap"=$2 WHERE "name"=$3`, [newManwhaName, parseFloat(newNumLastChap), oldManwhaName]);
+        if (oldMessage.partial) {
+            console.log("coucou")
+            newMessage.fetch()
+                .then(async fullMessage => {
+                    const {manwhaName: newManwhaName, numLastChap: newNumLastChap} = getNameAndNumChapFromMessage(fullMessage);
+                    console.log(typeof newNumLastChap, typeof newManwhaName)
+                    if (newNumLastChap !== "") {
+                        await dbConnexion.query(`UPDATE "startedManwha" SET "name"=$1, "numLastChap"=$2 WHERE "idDiscord"=$3`, [newManwhaName, parseFloat(newNumLastChap), fullMessage.id]);
+                    } else {
+                        await dbConnexion.query(`UPDATE "startedManwha" SET "name"=$1 WHERE "idDiscord"=$2`, [newManwhaName, fullMessage.id]);
+                    }
+                    console.log(`Message modifié vers ${fullMessage.content} réussi !`);
+                })
         } else {
-            await dbConnexion.query(`UPDATE "startedManwha" SET "name"=$1 WHERE "name"=$2`, [newManwhaName, oldManwhaName]);
+            const {manwhaName: newManwhaName, numLastChap: newNumLastChap} = getNameAndNumChapFromMessage(newMessage);
+            if (newNumLastChap !== "") {
+                await dbConnexion.query(`
+                    UPDATE "startedManwha" 
+                    SET "name"=$1, "numLastChap"=$2 
+                    WHERE "idDiscord"=$3`, [newManwhaName, parseFloat(newNumLastChap), newMessage.id]
+                );
+            } else {
+                await dbConnexion.query(`UPDATE "startedManwha" SET "name"=$1 WHERE "idDiscord"=$2`, [newManwhaName, newMessage.id]);
+            }
+            console.log(`Message modifié vers ${newMessage.content} réussi !`);
         }
-        console.log(`Le manwha "${oldManwhaName}" a bien été modifié dans la database en "${newManwhaName}"!`)
-    }
 });
 
 client.on("messageCreate", async (message) => {
@@ -105,18 +124,18 @@ client.on("messageCreate", async (message) => {
     if (message.author.id === process.env.AUTHOR_ID) {
         const {manwhaName, numLastChap} = getNameAndNumChapFromMessage(message);
         const type = message.channel.id === process.env.CHANNEL2_ID ? 'H' : 'N';
-        await dbConnexion.query(`INSERT INTO "startedManwha" ("name", "numLastChap", "type") VALUES ($1, $2, $3)`, [manwhaName, parseFloat(numLastChap), type]);
+        await dbConnexion.query(`INSERT INTO "startedManwha" ("name", "numLastChap", "type", "idDiscord") VALUES ($1, $2, $3, $4)`, [manwhaName, parseFloat(numLastChap), type, message.id]);
         console.log(`Le manwha "${manwhaName}" a bien été ajouté dans la database !`);
     }
-})
+});
 
-client.on("messageDelete", async (message: Message) => {
-    if (message.author.id === process.env.AUTHOR_ID && message.guild.id === process.env.SERVER_ID && message.channel.id === process.env.CHANNEL1_ID) {
-        const {manwhaName} = getNameAndNumChapFromMessage(message);
-        await dbConnexion.query(`DELETE FROM "startedManwha" WHERE "name"=$1`, [manwhaName])
-        console.log(`Le manwha "${manwhaName}" a bien été supprimé de la database !`)
+client.on("messageDelete", async (message) => {
+    if (message.channel.id === process.env.CHANNEL1_ID || message.channel.id === process.env.CHANNEL2_ID)
+    {
+        await dbConnexion.query(`DELETE FROM "startedManwha" WHERE "idDiscord"=$1`, [message.id]);
+        console.log(`Message supprimé dans la base de donnée !`);
     }
-})
+});
 
 
 client.login(process.env.TOKEN);
