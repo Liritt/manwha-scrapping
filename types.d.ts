@@ -3,8 +3,8 @@ declare global {
     interface ProcessEnv {
       SERVER_ID: string,
       AUTHOR_ID: string,
-      CHANNEL_ID: string,
-      CHANNEL_ID2: string,
+      CHANNEL1_ID: string,
+      CHANNEL2_ID: string,
       TOKEN: string,
       DB_PASSWORD: string
     }

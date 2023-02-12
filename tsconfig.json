@@ -5,6 +5,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "sourceMap": true
   }
 }
