@@ -27,11 +27,15 @@ const triggerDeleteStartedManwha = `
     RETURNS TRIGGER AS $$
     DECLARE
       current_max INTEGER;
+      record "startedManwha"%ROWTYPE;
     BEGIN
     SELECT max("idStartMan") INTO current_max FROM "startedManwha";
-    IF OLD."idStartMan" < current_max THEN
-      UPDATE "startedManwha" SET "idStartMan" = "idStartMan" - 1 WHERE "idStartMan" > OLD."idStartMan";
-    END IF;
+      IF OLD."idStartMan" < current_max THEN
+        FOR record IN (SELECT * FROM "startedManwha" WHERE "idStartMan" > OLD."idStartMan" ORDER BY "idStartMan")
+        LOOP
+          record."idStartMan" = OLD."idStartMan" - 1;
+        END LOOP;
+      END IF;
       RETURN OLD;
     END;
     $$ LANGUAGE plpgsql;
