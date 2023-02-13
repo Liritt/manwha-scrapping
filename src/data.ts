@@ -58,10 +58,18 @@ export async function getData() {
                 });
 
                 const lstAltNames: Array<string> = await newPage.evaluate(() => {
-                    const labelValue = document.querySelector("table.variations-tableInfo tbody tr:nth-child(1) td.table-label")?.textContent as string ?? "Pas de nom alternatif";
-                    if (labelValue.trim() === "Alternative :") {
-                        const altNames = document.querySelector("table.variations-tableInfo tbody tr:nth-child(1) td.table-value h2")?.textContent as string;
-                        let newAltNames: Array<string> = [];
+                    let altNames = document.querySelector("div.leftCol div.manga-info-top ul.manga-info-text li:nth-child(1) h2")?.textContent as string;
+                    if (altNames === undefined) {
+                        const labelValue = document.querySelector("table.variations-tableInfo tbody tr:nth-child(1) td.table-label")?.textContent as string ?? "Pas de label";
+                        if (labelValue.trim() === "Alternative :") {
+                            altNames = document.querySelector("table.variations-tableInfo tbody tr:nth-child(1) td.table-value h2")?.textContent as string;
+                        }
+                    }
+                    if (altNames !== undefined) {
+                        if (altNames.startsWith("Alternative : ")) {
+                            altNames = altNames.substring(14, altNames.length);
+                        }
+                        let newAltNames: Array<string>;
                         if (altNames.includes(";")) {
                             newAltNames = altNames.split(";");
                         } else if (altNames.includes("/")) {
@@ -125,7 +133,6 @@ export async function getData() {
         manwhas.forEach((manwha) => {
             if (typeof manwha.datUpdate === "string") {
                 manwha.datUpdate = new Date(manwha.datUpdate)
-                console.log(typeof manwha.datUpdate)
             }
             if (!manwha.genres.some((genre) => bannedGenres.includes(genre))) {
                 console.log(manwha);

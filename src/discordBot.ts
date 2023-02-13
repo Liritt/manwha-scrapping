@@ -59,7 +59,7 @@ function getNameAndNumChapFromMessage(message: Message | PartialMessage) {
 }
 
 client.once("ready", async () => {
-    console.log("Je suis en ligne maintenant !")
+    console.log("Robot en ligne maintenant !")
     const guild = client.guilds.cache.get(process.env.SERVER_ID);
     if (!guild) return console.error('Guild not found');
 
@@ -69,7 +69,7 @@ client.once("ready", async () => {
     const messages1 = await getAllMessages(channel1);
     const messages2 = await getAllMessages(channel2);
     await dbConnexion.connect();
-    console.log("Connected to database");
+    console.log("Connecté à la base de donnée");
     for (const message of [...messages1, ...messages2]) {
         try {
             if (message.author.id === process.env.AUTHOR_ID) {
@@ -92,7 +92,6 @@ client.once("ready", async () => {
 
 client.on('messageUpdate', async (oldMessage, newMessage) => {
         if (oldMessage.partial) {
-            console.log("coucou")
             newMessage.fetch()
                 .then(async fullMessage => {
                     const {manwhaName: newManwhaName, numLastChap: newNumLastChap} = getNameAndNumChapFromMessage(fullMessage);
