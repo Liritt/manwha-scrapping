@@ -4,6 +4,7 @@ export async function getData() {
     let nbPageSelect = 1;
     const browser = await puppeteer.launch({headless: false})
     const page = await browser.newPage();
+    let lstManwhas: Array<{name: string, genres: string[], status: string, lstAltNames: string[], rating: number, link: string, datUpdate: string | Date, description: string, nbViews: number, manwhaPicUrl: string}> = [];
     do {
         await page.goto(`https://mangakakalot.com/manga_list?type=latest&category=all&state=all&page=${nbPageSelect}`);
         const links: Array<string> = await page.evaluate(() => {
@@ -18,6 +19,7 @@ export async function getData() {
         });
         let manwhas: Array<{name: string, genres: string[], status: string, lstAltNames: string[], rating: number, link: string, datUpdate: string | Date, description: string, nbViews: number, manwhaPicUrl: string}> = [];
         const MAX_PAGE_TO_LOAD = 5;
+        const bannedGenres: Array<string> = ["Yaoi", "Shounen ai", "Yuri"];
         for (let i = 0; i < links.length; i += MAX_PAGE_TO_LOAD) {
             const linksChunk: Array<string> = links.slice(i, i + MAX_PAGE_TO_LOAD);
             const promises = linksChunk.map(async (link) => {
@@ -27,6 +29,39 @@ export async function getData() {
                 const h1: string = await newPage.evaluate(() => {
                     return document.querySelector("h1")?.textContent as string;
                 });
+
+                const lstAltNames: Array<string> = await newPage.evaluate(() => {
+                    let altNames = document.querySelector("div.leftCol div.manga-info-top ul.manga-info-text li:nth-child(1) h2")?.textContent as string;
+                    if (altNames === undefined) {
+                        const labelValue = document.querySelector("table.variations-tableInfo tbody tr:nth-child(1) td.table-label")?.textContent as string ?? "Pas de label";
+                        if (labelValue.trim() === "Alternative :") {
+                            altNames = document.querySelector("table.variations-tableInfo tbody tr:nth-child(1) td.table-value h2")?.textContent as string;
+                        }
+                    }
+                    if (altNames !== undefined) {
+                        if (altNames.startsWith("Alternative : ")) {
+                            altNames = altNames.substring(14, altNames.length);
+                        }
+                        let newAltNames: Array<string>;
+                        if (altNames.includes(";")) {
+                            newAltNames = altNames.split(";");
+                        } else if (altNames.includes("/")) {
+                            newAltNames = altNames.split("/");
+                        } else {
+                            newAltNames = altNames.split(",")
+                        }
+                        const regex = /^[\u0000-\u00FF]+$/;
+                        const verifNewAltNames: Array<string> = newAltNames.filter((altName) => altName.match(regex)).map((altName) => altName.trim());
+                        return verifNewAltNames.length > 0 ? verifNewAltNames : ['Pas de nom alternatif'];
+                    }
+                    return ['Pas de nom alternatif'];
+                });
+
+                if (lstAltNames.some((altName) => bannedGenres.includes(altName))) {
+                    await newPage.close();
+                    return;
+                }
+
                 const lstGenre: Array<string> = await newPage.evaluate(() => {
                     const tempGenreCase1: string = document.querySelector("table.variations-tableInfo tr:last-child td.table-value")?.textContent as string;
                     let genres: Array<string> = [];
@@ -57,40 +92,13 @@ export async function getData() {
                     return statusName;
                 });
 
-                const lstAltNames: Array<string> = await newPage.evaluate(() => {
-                    let altNames = document.querySelector("div.leftCol div.manga-info-top ul.manga-info-text li:nth-child(1) h2")?.textContent as string;
-                    if (altNames === undefined) {
-                        const labelValue = document.querySelector("table.variations-tableInfo tbody tr:nth-child(1) td.table-label")?.textContent as string ?? "Pas de label";
-                        if (labelValue.trim() === "Alternative :") {
-                            altNames = document.querySelector("table.variations-tableInfo tbody tr:nth-child(1) td.table-value h2")?.textContent as string;
-                        }
-                    }
-                    if (altNames !== undefined) {
-                        if (altNames.startsWith("Alternative : ")) {
-                            altNames = altNames.substring(14, altNames.length);
-                        }
-                        let newAltNames: Array<string>;
-                        if (altNames.includes(";")) {
-                            newAltNames = altNames.split(";");
-                        } else if (altNames.includes("/")) {
-                            newAltNames = altNames.split("/");
-                        } else {
-                            newAltNames = altNames.split(",")
-                        }
-                        const regex = /^[\u0000-\u00FF]+$/;
-                        const verifNewAltNames: Array<string> = newAltNames.filter((altName) => altName.match(regex)).map((altName) => altName.trim());
-                        return verifNewAltNames.length > 0 ? verifNewAltNames : ['Pas de nom alternatif'];
-                    }
-                    return ['Pas de nom alternatif'];
-                })
-
                 const rating: number | null = await newPage.evaluate(() => {
                     let tempRating: number = document.querySelector("#rate_row_cmd > em > em:nth-child(2) > em > em:nth-child(1)")?.textContent as unknown as number;
                     if (tempRating === undefined) {
                         tempRating = document.querySelector("#rate_row > input")?.getAttribute("value") as unknown as number;
                     }
                     return tempRating;
-                })
+                });
 
                 const datUpdate: string = await newPage.evaluate(() => {
                     let tempDatUpdate: string = document.querySelector("div.story-info-right div.story-info-right-extent p:nth-child(1) span.stre-value")?.textContent as string;
@@ -127,19 +135,18 @@ export async function getData() {
                 await newPage.close();
                 return {name: h1, genres: lstGenre, status: status, lstAltNames: lstAltNames, rating: rating, link: link, datUpdate: datUpdate, description: description, nbViews: nbViews, manwhaPicUrl: manwhaPicUrl};
             });
-            manwhas = manwhas.concat(await Promise.all(promises));
+            manwhas = manwhas.concat(await Promise.all(promises)).filter((manwha) => manwha !== undefined);
         }
-        const bannedGenres: Array<string> = ["Yaoi", "Shounen ai", "Yuri"]
         manwhas.forEach((manwha) => {
             if (typeof manwha.datUpdate === "string") {
                 manwha.datUpdate = new Date(manwha.datUpdate)
             }
-            if (!manwha.genres.some((genre) => bannedGenres.includes(genre))) {
-                console.log(manwha);
-            }
         });
         nbPageSelect += 1;
+        lstManwhas = lstManwhas.concat(manwhas)
     } while (nbPageSelect < 1);
 
+
     await browser.close();
+    return lstManwhas;
 }

@@ -1,7 +1,6 @@
 import {Client, GatewayIntentBits, Message, PartialMessage, Partials, TextChannel} from "discord.js";
 import * as dotenv from 'dotenv';
 import {dbConnexion} from '../DBConnexion';
-import {channel} from "diagnostics_channel";
 
 dotenv.config();
 
@@ -50,7 +49,7 @@ function getNameAndNumChapFromMessage(message: Message | PartialMessage) {
         }
     } while (!isNaN(parsedMessage) && manwhaName.length > 0);
     const testedManwhaName = manwhaName.toLowerCase();
-    if (testedManwhaName.endsWith('- chapter') || testedManwhaName.endsWith('- chapitre') || testedManwhaName.endsWith('– chapter')) {
+    if (testedManwhaName.endsWith('- chapter') || testedManwhaName.endsWith('- chapitre') || testedManwhaName.endsWith('– chapter') || testedManwhaName.endsWith('– chapitre')) {
         manwhaName = manwhaName.substring(0, manwhaName.length-9).trim();
     } else if (testedManwhaName.endsWith('chapter') || testedManwhaName.endsWith('chapitre')) {
         manwhaName = manwhaName.substring(0, manwhaName.length-7).trim();
