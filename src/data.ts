@@ -4,7 +4,11 @@ export async function getData() {
     let nbPageSelect = 1;
     const browser = await puppeteer.launch({headless: false})
     const page = await browser.newPage();
-    let lstManwhas: Array<{name: string, genres: string[], status: string, lstAltNames: string[], rating: number, link: string, datUpdate: string | Date, description: string, nbViews: number, manwhaPicUrl: string}> = [];
+    /*
+    let nbPageSelect: string = document.querySelector("div.leftCol.listCol div div.panel_page_number div.group_page a.page_blue.page_last")?.textContent;
+    nbPageSelect = nbPageSelect.substring(5, nbPageSelect.length-1);
+     */
+    let lstManwhas: Array<{name: string, genres: string[], status: string, lstAltNames: string[], rating: number, link: string, datUpdate: string | Date, description: string, nbViews: string, manwhaPicUrl: string}> = [];
     do {
         await page.goto(`https://mangakakalot.com/manga_list?type=latest&category=all&state=all&page=${nbPageSelect}`);
         const links: Array<string> = await page.evaluate(() => {
@@ -17,7 +21,7 @@ export async function getData() {
 
             return array;
         });
-        let manwhas: Array<{name: string, genres: string[], status: string, lstAltNames: string[], rating: number, link: string, datUpdate: string | Date, description: string, nbViews: number, manwhaPicUrl: string}> = [];
+        let manwhas: Array<{name: string, genres: string[], status: string, lstAltNames: string[], rating: number, link: string, datUpdate: string | Date, description: string, nbViews: string, manwhaPicUrl: string}> = [];
         const MAX_PAGE_TO_LOAD = 5;
         const bannedGenres: Array<string> = ["Yaoi", "Shounen ai", "Yuri"];
         for (let i = 0; i < links.length; i += MAX_PAGE_TO_LOAD) {
@@ -26,7 +30,7 @@ export async function getData() {
                 const newPage = await browser.newPage();
 
                 await newPage.goto(link,{timeout: 0});
-                const h1: string = await newPage.evaluate(() => {
+                const name: string = await newPage.evaluate(() => {
                     return document.querySelector("h1")?.textContent as string;
                 });
 
@@ -62,23 +66,24 @@ export async function getData() {
                     return;
                 }
 
-                const lstGenre: Array<string> = await newPage.evaluate(() => {
+                const genres: Array<string> = await newPage.evaluate(() => {
                     const tempGenreCase1: string = document.querySelector("table.variations-tableInfo tr:last-child td.table-value")?.textContent as string;
-                    let genres: Array<string> = [];
+                    let lstGenres: Array<string> = [];
                     let separator;
-                    genres?.includes(",") ? separator = "," : separator = " - ";
+                    lstGenres?.includes(",") ? separator = "," : separator = " - ";
                     if (tempGenreCase1 === undefined) {
                         const tempGenreCase2 = document.querySelector("ul.manga-info-text li:nth-child(7)");
                         if (tempGenreCase2 !== null) {
                             for (let i = 0; i < tempGenreCase2.children.length; ++i) {
-                                genres.push(tempGenreCase2.children[i].textContent as string)
+                                lstGenres.push(tempGenreCase2.children[i].textContent as string)
                             }
                         }
                     } else {
-                        genres = tempGenreCase1?.replace(/\n/g, "").split(separator) as Array<string>;
+                        lstGenres = tempGenreCase1?.replace(/\n/g, "").split(separator) as Array<string>;
                     }
-                    return genres;
+                    return lstGenres;
                 });
+
                 const status: string = await newPage.evaluate(() => {
                     let statusName: string = document.querySelector("table.variations-tableInfo tr:nth-child(3) td.table-value")?.textContent as string;
                     const allowedStatuses = ["Completed", "Ongoing"];
@@ -107,7 +112,7 @@ export async function getData() {
                     }
                     tempDatUpdate = tempDatUpdate.replace("- ", "");
                     // Prepare the string to be converted to a date with the french timezone
-                    return tempDatUpdate.substring(0, tempDatUpdate.length-2) + "UTC+7";
+                    return tempDatUpdate.substring(0, tempDatUpdate.length-2);
                 });
 
                 const description: string | undefined = await newPage.evaluate(() => {
@@ -121,10 +126,11 @@ export async function getData() {
                     return description.replace(/\n/g, "");
                 });
 
-                const nbViews: number = await newPage.evaluate(() => {
-                    let tempNbViews: number = document.querySelector("div.story-info-right div.story-info-right-extent p:nth-child(2) span.stre-value")?.textContent as unknown as number
+                const nbViews: string = await newPage.evaluate(() => {
+                    let tempNbViews: string = document.querySelector("div.story-info-right div.story-info-right-extent p:nth-child(2) span.stre-value")?.textContent as string
                     if (tempNbViews === undefined) {
-                        tempNbViews = document.querySelector("div.manga-info-top ul.manga-info-text li:nth-child(6)")?.textContent as unknown as number;
+                        tempNbViews = document.querySelector("div.manga-info-top ul.manga-info-text li:nth-child(6)")?.textContent as string;
+                        tempNbViews = tempNbViews.substring(7, tempNbViews.length).replace(",", ".");
                     }
                     return tempNbViews;
                 });
@@ -132,19 +138,22 @@ export async function getData() {
                 const manwhaPicUrl: string = await newPage.evaluate(() => {
                     return document.querySelector("div.panel-story-info div.story-info-left span.info-image img")?.getAttribute("src") as string ?? document.querySelector("div.leftCol > div.manga-info-top > div.manga-info-pic > img")?.getAttribute("src") as string;
                 });
+
                 await newPage.close();
-                return {name: h1, genres: lstGenre, status: status, lstAltNames: lstAltNames, rating: rating, link: link, datUpdate: datUpdate, description: description, nbViews: nbViews, manwhaPicUrl: manwhaPicUrl};
+
+                return {name, genres, status, lstAltNames, rating, link, datUpdate, description, nbViews, manwhaPicUrl};
             });
             manwhas = manwhas.concat(await Promise.all(promises)).filter((manwha) => manwha !== undefined);
         }
         manwhas.forEach((manwha) => {
             if (typeof manwha.datUpdate === "string") {
-                manwha.datUpdate = new Date(manwha.datUpdate)
+                manwha.datUpdate = new Date(manwha.datUpdate);
+                manwha.datUpdate.setHours(manwha.datUpdate.getHours()-7);
             }
         });
         nbPageSelect += 1;
-        lstManwhas = lstManwhas.concat(manwhas)
-    } while (nbPageSelect < 1);
+        lstManwhas = lstManwhas.concat(manwhas);
+    } while (nbPageSelect < 3);
 
 
     await browser.close();
