@@ -118,30 +118,6 @@ export async function getManwhasData() {
                 const lstChapters: Array<{ name: string, number: number, url: string, datUpload: string | Date }> = await newPage.evaluate(() =>
                     {
                         const newLst: Array<{ name: string, number: number, url: string, datUpload: string }> = [];
-                        const getNumber = (title: string) => {
-                            let testedChar = "";
-                            let finalNumber = "";
-                            do {
-                                testedChar = title.charAt(title.length-1);
-                                if (testedChar === ".") {
-                                    finalNumber = testedChar + finalNumber;
-                                    title = title.substring(0, title.length-1);
-                                    testedChar = title.charAt(title.length-1);
-                                }
-                                if (!isNaN(parseFloat(testedChar))) {
-                                    finalNumber = testedChar + finalNumber;
-                                    title = title.substring(0, title.length-1);
-                                }
-                            } while (!isNaN(parseFloat(testedChar)));
-
-                            return parseFloat(finalNumber);
-                        }
-
-                        const getDate = (date: string): Date => {
-                            const finalDate: Date = new Date(date);
-                            finalDate.setHours(finalDate.getHours()-7)
-                            return finalDate;
-                        }
 
                         const chapters = document.querySelectorAll("div.container-main-left div.panel-story-chapter-list ul.row-content-chapter li.a-h, #chapter div div.chapter-list div.row");
 
@@ -224,7 +200,7 @@ export async function getManwhasData() {
                 manwha.datUpdate.setHours(manwha.datUpdate.getHours()-7);
             }
             manwha.lstChapters.forEach((chapter) => {
-                chapter.datUpload = new Date(manwha.datUpdate);
+                chapter.datUpload = new Date(chapter.datUpload);
                 chapter.datUpload.setHours(chapter.datUpload.getHours()-7);
             })
         });

@@ -27,13 +27,19 @@ dbConnexion.connect()
                                 console.log(`Le manwha "${manwha.name}" a été inséré dans la base de donnée`);
                             }
                             const idMan = (await dbConnexion.query(`SELECT "idMan" from "Manwha" WHERE "name"=$1`, [manwha.name])).rows[0].idMan;
+                            const nbChaptersAlreadyRead = (await dbConnexion.query(`SELECT "numLastChap" FROM "startedManwha" WHERE lower(name)=$1`, [manwha.name.toLowerCase()])).rows[0].numLastChap;
                             try {
                                 for (const chapter of manwha.lstChapters) {
-                                    await dbConnexion.query(`
-                                        INSERT INTO "Chapter" ("name", "number", "url", "datUpload", "idMan")
-                                        VALUES ($1, $2, $3, $4, $5)`,
-                                        [chapter.name, chapter.number, chapter.url, chapter.datUpload, idMan]
-                                    );
+                                    console.log(chapter.number);
+                                    console.log(nbChaptersAlreadyRead);
+                                    if (chapter.number >= nbChaptersAlreadyRead) {
+                                        console.log("coucou")
+                                        await dbConnexion.query(`
+                                            INSERT INTO "Chapter" ("name", "number", "url", "datUpload", "idMan")
+                                            VALUES ($1, $2, $3, $4, $5)`,
+                                            [chapter.name, chapter.number, chapter.url, chapter.datUpload, idMan]
+                                        );
+                                    }
                                 }
                                 console.log(`Les chapitres du manwha ${manwha.name} ont été insérés avec succès !`)
                             } catch (error) {
