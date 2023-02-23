@@ -1,6 +1,6 @@
 import * as puppeteer from 'puppeteer';
 
-export async function getData() {
+export async function getManwhasData() {
     let nbPageSelect = 1;
     const browser = await puppeteer.launch({headless: false})
     const page = await browser.newPage();
@@ -8,7 +8,7 @@ export async function getData() {
     let nbPageSelect: string = document.querySelector("div.leftCol.listCol div div.panel_page_number div.group_page a.page_blue.page_last")?.textContent;
     nbPageSelect = nbPageSelect.substring(5, nbPageSelect.length-1);
      */
-    let lstManwhas: Array<{name: string, genres: string[], status: string, lstAltNames: string[], rating: number, link: string, datUpdate: string | Date, description: string, nbViews: string, manwhaPicUrl: string}> = [];
+    let lstManwhas: Array<{name: string, genres: string[], status: string, lstAltNames: string[], rating: number, link: string, datUpdate: string | Date, description: string, nbViews: string, manwhaPicUrl: string, lstChapters: Array<{ name: string, number: number, url: string, datUpload: string | Date }>}> = [];
     do {
         await page.goto(`https://mangakakalot.com/manga_list?type=latest&category=all&state=all&page=${nbPageSelect}`);
         const links: Array<string> = await page.evaluate(() => {
@@ -21,7 +21,7 @@ export async function getData() {
 
             return array;
         });
-        let manwhas: Array<{name: string, genres: string[], status: string, lstAltNames: string[], rating: number, link: string, datUpdate: string | Date, description: string, nbViews: string, manwhaPicUrl: string}> = [];
+        let manwhas: Array<{name: string, genres: string[], status: string, lstAltNames: string[], rating: number, link: string, datUpdate: string | Date, description: string, nbViews: string, manwhaPicUrl: string, lstChapters: Array<{ name: string, number: number, url: string, datUpload: string | Date }>}> = [];
         const MAX_PAGE_TO_LOAD = 5;
         const bannedGenres: Array<string> = ["Yaoi", "Shounen ai", "Yuri"];
         for (let i = 0; i < links.length; i += MAX_PAGE_TO_LOAD) {
@@ -61,10 +61,6 @@ export async function getData() {
                     return ['Pas de nom alternatif'];
                 });
 
-                if (lstAltNames.some((altName) => bannedGenres.includes(altName))) {
-                    await newPage.close();
-                    return;
-                }
 
                 const genres: Array<string> = await newPage.evaluate(() => {
                     const tempGenreCase1: string = document.querySelector("table.variations-tableInfo tr:last-child td.table-value")?.textContent as string;
@@ -83,6 +79,11 @@ export async function getData() {
                     }
                     return lstGenres;
                 });
+
+                if (genres.some((genre) => bannedGenres.includes(genre))) {
+                    await newPage.close();
+                    return;
+                }
 
                 const status: string = await newPage.evaluate(() => {
                     let statusName: string = document.querySelector("table.variations-tableInfo tr:nth-child(3) td.table-value")?.textContent as string;
@@ -111,9 +112,81 @@ export async function getData() {
                         tempDatUpdate = document.querySelector("div.manga-info-top ul.manga-info-text li:nth-child(4)")?.textContent?.replace("Last updated : ", "") as string;
                     }
                     tempDatUpdate = tempDatUpdate.replace("- ", "");
-                    // Prepare the string to be converted to a date with the french timezone
                     return tempDatUpdate.substring(0, tempDatUpdate.length-2);
                 });
+
+                const lstChapters: Array<{ name: string, number: number, url: string, datUpload: string | Date }> = await newPage.evaluate(() =>
+                    {
+                        const newLst: Array<{ name: string, number: number, url: string, datUpload: string }> = [];
+                        const getNumber = (title: string) => {
+                            let testedChar = "";
+                            let finalNumber = "";
+                            do {
+                                testedChar = title.charAt(title.length-1);
+                                if (testedChar === ".") {
+                                    finalNumber = testedChar + finalNumber;
+                                    title = title.substring(0, title.length-1);
+                                    testedChar = title.charAt(title.length-1);
+                                }
+                                if (!isNaN(parseFloat(testedChar))) {
+                                    finalNumber = testedChar + finalNumber;
+                                    title = title.substring(0, title.length-1);
+                                }
+                            } while (!isNaN(parseFloat(testedChar)));
+
+                            return parseFloat(finalNumber);
+                        }
+
+                        const getDate = (date: string): Date => {
+                            const finalDate: Date = new Date(date);
+                            finalDate.setHours(finalDate.getHours()-7)
+                            return finalDate;
+                        }
+
+                        const chapters = document.querySelectorAll("div.container-main-left div.panel-story-chapter-list ul.row-content-chapter li.a-h, #chapter div div.chapter-list div.row");
+
+                        if (chapters.length !== 0) {
+                            chapters?.forEach((chapter) => {
+                                const urlElement: HTMLLinkElement | HTMLAnchorElement = chapter.querySelector("a") ?? chapter.querySelector("span a") as HTMLLinkElement;
+                                const url: string = urlElement.href;
+                                try {
+                                    const titleElement: HTMLElement = chapter.querySelector("a") ?? chapter.querySelector("span a") as HTMLElement;
+                                    const title: string = titleElement.title;
+                                    let name: string;
+                                    let number: number | string;
+                                    if (title.includes('Chapter')) {
+                                        name = title.split('Chapter')[0].trim();
+                                        number = title.split('Chapter')[1].trim()
+                                        if (number.includes(':')) {
+                                            number = number.split(':')[0].trim()
+                                        }
+                                        if (name.includes('chapter')) {
+                                            name = name.split('chapter')[0].trim();
+                                        }
+                                    } else if (title.includes('chapter')) {
+                                        name = title.split('chapter')[0].trim();
+                                        number = title.split('chapter')[1].trim()
+                                        if (number.includes(':')) {
+                                            number = number.split(':')[0].trim()
+                                        }
+                                    }
+                                    const datUpload: string = (chapter.querySelector("span.chapter-time.text-nowrap") as HTMLElement).title;
+
+                                    if (typeof number === "string") {
+                                        number = parseFloat(number);
+                                    }
+
+                                    if (number !== null || name !== null) {
+                                        newLst.push({name, number, url, datUpload});
+                                    }
+                                } catch (error) {
+                                    console.log(error);
+                                }
+                            });
+                        }
+                        return newLst;
+                    }
+                )
 
                 const description: string | undefined = await newPage.evaluate(() => {
                     let description = document.getElementById("panel-story-info-description")?.textContent?.replace("Description :\n", "");
@@ -141,7 +214,7 @@ export async function getData() {
 
                 await newPage.close();
 
-                return {name, genres, status, lstAltNames, rating, link, datUpdate, description, nbViews, manwhaPicUrl};
+                return {name, genres, status, lstAltNames, rating, link, datUpdate, description, nbViews, manwhaPicUrl, lstChapters};
             });
             manwhas = manwhas.concat(await Promise.all(promises)).filter((manwha) => manwha !== undefined);
         }
@@ -150,6 +223,10 @@ export async function getData() {
                 manwha.datUpdate = new Date(manwha.datUpdate);
                 manwha.datUpdate.setHours(manwha.datUpdate.getHours()-7);
             }
+            manwha.lstChapters.forEach((chapter) => {
+                chapter.datUpload = new Date(manwha.datUpdate);
+                chapter.datUpload.setHours(chapter.datUpload.getHours()-7);
+            })
         });
         nbPageSelect += 1;
         lstManwhas = lstManwhas.concat(manwhas);
