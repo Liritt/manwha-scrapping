@@ -30,10 +30,7 @@ dbConnexion.connect()
                             const nbChaptersAlreadyRead = (await dbConnexion.query(`SELECT "numLastChap" FROM "startedManwha" WHERE lower(name)=$1`, [manwha.name.toLowerCase()])).rows[0].numLastChap;
                             try {
                                 for (const chapter of manwha.lstChapters) {
-                                    console.log(chapter.number);
-                                    console.log(nbChaptersAlreadyRead);
                                     if (chapter.number >= nbChaptersAlreadyRead) {
-                                        console.log("coucou")
                                         await dbConnexion.query(`
                                             INSERT INTO "Chapter" ("name", "number", "url", "datUpload", "idMan")
                                             VALUES ($1, $2, $3, $4, $5)`,
